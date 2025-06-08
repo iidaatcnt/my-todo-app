@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Check, Clock } from 'lucide-react';
 
 interface Todo {
@@ -10,35 +10,67 @@ interface Todo {
 }
 
 export default function TodoApp() {
-  const [todos, setTodos] = useState<Todo[]>([
-    { id: 1, text: 'Claudeでアプリを作成', completed: true },
-    { id: 2, text: 'Vercelにデプロイ', completed: false },
-    { id: 3, text: 'アプリを公開', completed: false }
-  ]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [inputText, setInputText] = useState<string>('');
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+
+  // 初期データの読み込み
+  useEffect(() => {
+    const savedTodos = localStorage.getItem('todos');
+    if (savedTodos) {
+      try {
+        setTodos(JSON.parse(savedTodos));
+      } catch (error) {
+        console.error('保存されたTodoデータの読み込みに失敗しました:', error);
+        // エラーの場合はデフォルトデータを設定
+        setDefaultTodos();
+      }
+    } else {
+      // 初回起動時はデフォルトのTodoを設定
+      setDefaultTodos();
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // デフォルトのTodoを設定する関数
+  const setDefaultTodos = () => {
+    const defaultTodos = [
+      { id: 1, text: 'Claudeでアプリを作成', completed: true },
+      { id: 2, text: 'Vercelにデプロイ', completed: false },
+      { id: 3, text: 'アプリを公開', completed: false }
+    ];
+    setTodos(defaultTodos);
+  };
+
+  // Todoが変更されるたびにlocalStorageに保存
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('todos', JSON.stringify(todos));
+    }
+  }, [todos, isLoaded]);
 
   const addTodo = (): void => {
     if (inputText.trim() !== '') {
-      setTodos([
-        ...todos,
-        {
-          id: Date.now(),
-          text: inputText.trim(),
-          completed: false
-        }
-      ]);
+      const newTodo = {
+        id: Date.now(),
+        text: inputText.trim(),
+        completed: false
+      };
+      setTodos(prevTodos => [...prevTodos, newTodo]);
       setInputText('');
     }
   };
 
   const toggleTodo = (id: number): void => {
-    setTodos(todos.map(todo =>
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    ));
+    setTodos(prevTodos =>
+      prevTodos.map(todo =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      )
+    );
   };
 
   const deleteTodo = (id: number): void => {
-    setTodos(todos.filter(todo => todo.id !== id));
+    setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id));
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {
@@ -47,8 +79,34 @@ export default function TodoApp() {
     }
   };
 
+  // 全てのTodoをクリアする関数（オプション）
+  const clearAllTodos = (): void => {
+    if (window.confirm('全てのTodoを削除しますか？')) {
+      setTodos([]);
+    }
+  };
+
+  // データリセット関数（オプション）
+  const resetToDefault = (): void => {
+    if (window.confirm('デフォルトのTodoにリセットしますか？')) {
+      setDefaultTodos();
+    }
+  };
+
   const completedCount = todos.filter(todo => todo.completed).length;
   const totalCount = todos.length;
+
+  // ローディング中の表示
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">データを読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -58,7 +116,7 @@ export default function TodoApp() {
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
             📝 Todo List
           </h1>
-          <p className="text-gray-600">Claudeで作成したサンプルアプリ</p>
+          <p className="text-gray-600">Claudeで作成したサンプルアプリ（永続化対応）</p>
           <div className="mt-4 flex justify-center items-center space-x-4 text-sm text-gray-500">
             <div className="flex items-center">
               <Check className="w-4 h-4 mr-1" />
@@ -160,9 +218,30 @@ export default function TodoApp() {
           </div>
         )}
 
+        {/* 管理ボタン */}
+        {totalCount > 0 && (
+          <div className="mt-6 bg-white rounded-lg shadow-lg p-6">
+            <div className="flex space-x-4 justify-center">
+              <button
+                onClick={clearAllTodos}
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm"
+              >
+                全て削除
+              </button>
+              <button
+                onClick={resetToDefault}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm"
+              >
+                デフォルトに戻す
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* フッター */}
         <div className="text-center mt-8 text-sm text-gray-500">
-          <p>🚀 Vercelにデプロイ準備完了！</p>
+          <p>🚀 Vercelにデプロイ準備完了！（データ永続化対応）</p>
+          <p className="mt-1">💾 Todoはブラウザに自動保存されます</p>
         </div>
       </div>
     </div>
